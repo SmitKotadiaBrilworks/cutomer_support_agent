@@ -29,7 +29,7 @@ export default function Home() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
     welcomeMessage(
-      "Hi! I'm UrbanCart's support assistant — behind the scenes, a Triage Agent routes you to one of three specialist agents (Order & Returns, FAQ, or Escalation). Try an example below, or ask your own question."
+      "Hi! I'm UrbanCart's support assistant — behind the scenes, a Triage Agent routes you to one of three specialist agents (Order & Returns, FAQ, or Escalation). Try an example below, or ask your own question.",
     ),
   ]);
   const [sending, setSending] = useState(false);
@@ -52,7 +52,11 @@ export default function Home() {
 
   function resetConversation() {
     setSessionId(newSessionId());
-    setMessages([welcomeMessage("New conversation started. Memory from the previous session won't carry over.")]);
+    setMessages([
+      welcomeMessage(
+        "New conversation started. Memory from the previous session won't carry over.",
+      ),
+    ]);
     setActiveAgentPath([]);
     setActiveTools([]);
     setLastTicketId(null);
@@ -101,7 +105,12 @@ export default function Home() {
           : "Network error talking to the backend.";
       setMessages((prev) => [
         ...prev,
-        { id: `err-${Date.now()}`, role: "system", content: detail, timestamp: Date.now() },
+        {
+          id: `err-${Date.now()}`,
+          role: "system",
+          content: detail,
+          timestamp: Date.now(),
+        },
       ]);
     } finally {
       setSending(false);
@@ -128,7 +137,7 @@ export default function Home() {
                 UrbanCart Support
               </h1>
               <p className="text-[12px] text-[var(--text-muted)] leading-tight">
-                Multi-agent AI support system — live demo
+                Multi-agent AI support system
               </p>
             </div>
           </div>

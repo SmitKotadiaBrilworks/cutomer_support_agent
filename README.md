@@ -212,6 +212,61 @@ customer_id, try an order ID that doesn't exist to see graceful handling, or
 an old delivery date to see a return get correctly declined and watch the
 Escalation Agent take over after a couple of frustrated turns.
 
+## Deploying to Vercel
+
+Two separate Vercel projects from this one repo — a Python serverless
+function for the backend, a zero-config Next.js deploy for the frontend.
+Files are already in place: [`backend/api/index.py`](backend/api/index.py)
+re-exports the same FastAPI `app` used by `uvicorn` locally, and
+[`backend/vercel.json`](backend/vercel.json) rewrites every request to that
+one function so FastAPI's own router — not Vercel's — decides what `/chat`,
+`/health`, `/agents` resolve to.
+
+**Backend must run in `postgres` mode on Vercel** — serverless functions are
+stateless between invocations (no guaranteed warm reuse), so the default
+`STORE_BACKEND=memory` (in-process `MemorySaver`) will silently lose
+conversation history mid-chat. Postgres + Redis externalizes that state, so
+it survives across invocations. See the section above for what "postgres
+mode" gets you.
+
+1. **Seed Postgres once, from your machine**, before deploying — same as
+   the local instructions above:
+   ```bash
+   cd backend
+   source .venv/bin/activate
+   python -m scripts.seed_postgres
+   ```
+2. **Backend project** — import the repo into Vercel, set **Root Directory**
+   to `backend`. Framework preset should auto-detect Python from
+   `requirements.txt` + `api/index.py`; no build command needed. Set these
+   env vars in the Vercel project settings (same meanings as `.env`):
+   - `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY` — at least one
+   - `STORE_BACKEND=postgres`
+   - `DATABASE_URL` — your Supabase (or other hosted Postgres) **Transaction
+     pooler** connection string, port 6543
+   - `REDIS_URL` — a **hosted** Redis reachable from the internet (e.g.
+     [Upstash](https://upstash.com)) — `localhost`/docker-compose Redis is
+     not reachable from Vercel's servers
+   - `POSTGRES_SCHEMA`, `EMBEDDING_PROVIDER`, `OPENAI_EMBEDDING_MODEL`,
+     `GOOGLE_EMBEDDING_MODEL` — only if overriding the defaults
+   - Deploy, then check `https://<backend-project>.vercel.app/health` — it
+     reports `store_backend`, live `postgres`/`redis` connectivity.
+3. **Frontend project** — import the same repo as a second Vercel project,
+   set **Root Directory** to `frontend` (Next.js auto-detected, no other
+   config needed). Set:
+   - `NEXT_PUBLIC_API_URL=https://<backend-project>.vercel.app`
+   - Deploy.
+
+Notes:
+- `backend/vercel.json` sets `maxDuration: 30` for the function (a
+  multi-step agent turn can involve several LLM + tool calls in sequence).
+  Raise or lower it based on your plan's limits.
+- CORS is currently wide open (`allow_origins=["*"]`) in
+  [`app/main.py`](backend/app/main.py) — fine for a demo, worth narrowing to
+  the frontend's exact Vercel URL for anything beyond that.
+- `backend/.vercelignore` excludes `.venv`, `eval/`, and `scripts/` from the
+  deployed bundle — none of that is needed at runtime.
+
 ## Running the evaluation harness
 
 ```bash
