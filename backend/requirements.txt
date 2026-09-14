@@ -1,0 +1,17 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+langgraph>=0.2.60
+langchain>=0.3.0
+langchain-core>=0.3.0
+langchain-openai>=0.2.0
+langchain-anthropic>=0.3.0
+langchain-google-genai>=2.0.0
+python-dotenv>=1.0
+pydantic>=2.7
+
+# Optional production-infra mode (STORE_BACKEND=postgres) — see docker-compose.yml
+psycopg[binary]>=3.2
+psycopg-pool>=3.2
+pgvector>=0.4
+langgraph-checkpoint-redis>=0.5
+redis>=5.0

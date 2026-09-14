@@ -1,0 +1,8 @@
+{"id": "order_status_basic", "message": "Hi, what's the status of my order ORD-1001?", "customer_id": "CUST-1", "expected_intent": "order_status", "expected_tool": "get_order_status"}
+{"id": "order_status_shipped", "message": "When will ORD-1003 arrive?", "customer_id": "CUST-2", "expected_intent": "order_status", "expected_tool": "get_order_status"}
+{"id": "return_eligible", "message": "I want to return order ORD-1002, it's been about 10 days since I got it.", "customer_id": "CUST-1", "expected_intent": "return_refund", "expected_tool": "check_return_eligibility"}
+{"id": "return_ineligible", "message": "I'd like a refund for ORD-1005, it was delivered a while ago.", "customer_id": "CUST-2", "expected_intent": "return_refund", "expected_tool": "check_return_eligibility"}
+{"id": "faq_international", "message": "Do you ship internationally?", "customer_id": null, "expected_intent": "product_faq", "expected_tool": "search_faq"}
+{"id": "faq_payment", "message": "What payment methods do you accept?", "customer_id": null, "expected_intent": "product_faq", "expected_tool": "search_faq"}
+{"id": "complaint_frustrated", "message": "This is the third time my package is late and nobody has helped me. I'm really frustrated.", "customer_id": "CUST-3", "expected_intent": "complaint", "expected_tool": null}
+{"id": "explicit_escalation", "message": "Please just connect me with a real human being.", "customer_id": "CUST-3", "expected_intent": "escalation_request", "expected_tool": null, "expect_escalated": true}

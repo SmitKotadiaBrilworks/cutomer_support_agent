@@ -1,0 +1,34 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: urbancart
+      POSTGRES_PASSWORD: urbancart
+      POSTGRES_DB: urbancart
+    ports:
+      - "5433:5432"   # non-default host port to avoid clashing with a local Postgres
+    volumes:
+      - urbancart_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U urbancart -d urbancart"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6380:6379"   # non-default host port to avoid clashing with a local Redis
+    volumes:
+      - urbancart_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  urbancart_pg_data:
+  urbancart_redis_data:
