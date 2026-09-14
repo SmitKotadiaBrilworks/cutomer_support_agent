@@ -214,13 +214,24 @@ Escalation Agent take over after a couple of frustrated turns.
 
 ## Deploying to Vercel
 
-Two separate Vercel projects from this one repo — a Python serverless
-function for the backend, a zero-config Next.js deploy for the frontend.
-Files are already in place: [`backend/api/index.py`](backend/api/index.py)
-re-exports the same FastAPI `app` used by `uvicorn` locally, and
-[`backend/vercel.json`](backend/vercel.json) rewrites every request to that
-one function so FastAPI's own router — not Vercel's — decides what `/chat`,
-`/health`, `/agents` resolve to.
+**One Vercel project, one domain**, serving both the Next.js frontend and
+the FastAPI backend. This needs an explicit root-level
+[`vercel.json`](vercel.json) because the two apps live in different
+subdirectories (`frontend/`, `backend/`) with different frameworks — without
+it, Vercel can't tell which one is "the" project and refuses to build
+("vercel.json required to deploy projects with multiple services").
+
+How it's wired:
+- Root [`vercel.json`](vercel.json) declares two builders — `@vercel/next`
+  for `frontend/`, `@vercel/python` for `backend/api/index.py` — and routes
+  `/api/*` to the Python function, everything else to the Next.js app.
+- [`backend/api/index.py`](backend/api/index.py) mounts the real FastAPI app
+  (from `app/main.py`, unchanged) under `/api`, so a browser request to
+  `/api/chat` reaches it, Starlette strips the `/api` prefix internally, and
+  it matches the app's own `/chat` route — same route table as local
+  `uvicorn`, no code duplicated or rewritten for Vercel.
+- The frontend must therefore call the API at the **relative path `/api`**
+  (same origin), not a separate URL — set `NEXT_PUBLIC_API_URL=/api`.
 
 **Backend must run in `postgres` mode on Vercel** — serverless functions are
 stateless between invocations (no guaranteed warm reuse), so the default
@@ -236,10 +247,11 @@ mode" gets you.
    source .venv/bin/activate
    python -m scripts.seed_postgres
    ```
-2. **Backend project** — import the repo into Vercel, set **Root Directory**
-   to `backend`. Framework preset should auto-detect Python from
-   `requirements.txt` + `api/index.py`; no build command needed. Set these
-   env vars in the Vercel project settings (same meanings as `.env`):
+2. **Import the repo as a single Vercel project** — leave **Root Directory**
+   as the repo root (default) so `vercel.json` at the top level is picked
+   up; don't set it to `frontend` or `backend`. Vercel will use the
+   `builds`/`routes` in `vercel.json` instead of framework auto-detection.
+3. **Set env vars** on that one project (Settings → Environment Variables):
    - `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY` — at least one
    - `STORE_BACKEND=postgres`
    - `DATABASE_URL` — your Supabase (or other hosted Postgres) **Transaction
@@ -249,23 +261,31 @@ mode" gets you.
      not reachable from Vercel's servers
    - `POSTGRES_SCHEMA`, `EMBEDDING_PROVIDER`, `OPENAI_EMBEDDING_MODEL`,
      `GOOGLE_EMBEDDING_MODEL` — only if overriding the defaults
-   - Deploy, then check `https://<backend-project>.vercel.app/health` — it
-     reports `store_backend`, live `postgres`/`redis` connectivity.
-3. **Frontend project** — import the same repo as a second Vercel project,
-   set **Root Directory** to `frontend` (Next.js auto-detected, no other
-   config needed). Set:
-   - `NEXT_PUBLIC_API_URL=https://<backend-project>.vercel.app`
-   - Deploy.
+   - `NEXT_PUBLIC_API_URL=/api` — relative, since it's now the same origin
+4. **Deploy**, then check `https://<your-project>.vercel.app/api/health` —
+   it reports `store_backend`, live `postgres`/`redis` connectivity.
 
 Notes:
-- `backend/vercel.json` sets `maxDuration: 30` for the function (a
-  multi-step agent turn can involve several LLM + tool calls in sequence).
-  Raise or lower it based on your plan's limits.
-- CORS is currently wide open (`allow_origins=["*"]`) in
-  [`app/main.py`](backend/app/main.py) — fine for a demo, worth narrowing to
-  the frontend's exact Vercel URL for anything beyond that.
-- `backend/.vercelignore` excludes `.venv`, `eval/`, and `scripts/` from the
-  deployed bundle — none of that is needed at runtime.
+- Same-origin API means **CORS is no longer needed** for the deployed app —
+  the wide-open `allow_origins=["*"]` in
+  [`app/main.py`](backend/app/main.py) only matters for local dev (frontend
+  on `:3000` calling backend on `:8000`) and testing the API directly.
+- When `builds` is set explicitly in `vercel.json` (as here), the
+  `functions` config key for setting `maxDuration` isn't available the same
+  way — a multi-step agent turn (several LLM + tool calls) can take a few
+  seconds; if you hit the default function timeout on your plan, that's the
+  first thing to look into (Vercel's dashboard shows per-function duration
+  limits by plan).
+- `.vercelignore` at the repo root excludes `backend/.venv`,
+  `backend/eval/`, `backend/scripts/`, and `frontend/node_modules` /
+  `.next` from the upload — none of that is needed at build/runtime.
+- Prefer two independent projects instead (separate domains, isolated env
+  vars/scaling, no shared-timeout or path-prefix concerns)? Set each
+  project's Root Directory to `backend` or `frontend` respectively instead
+  of using the root `vercel.json` — but then the backend's routes need to
+  stay unprefixed (drop the `/api` mount in `backend/api/index.py`, add back
+  a `backend/vercel.json` rewriting all paths to it) and the frontend needs
+  `NEXT_PUBLIC_API_URL` pointed at the backend project's own full URL.
 
 ## Running the evaluation harness
 

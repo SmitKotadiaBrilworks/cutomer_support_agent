@@ -1,19 +1,25 @@
-"""Vercel Python Function entrypoint.
+"""Vercel Python Function entrypoint for the single-project deployment.
 
-Vercel's Python runtime detects an ASGI app named `app` in this file and
-serves it directly (the same FastAPI instance used by `uvicorn` locally) —
-no adapter/WSGI shim needed. `vercel.json` in the parent directory rewrites
-every request to this function, so FastAPI's own router (not Vercel) decides
-what `/chat`, `/health`, etc. resolve to.
+The root `vercel.json` routes every `/api/*` request here, but the actual
+HTTP path forwarded to this function is NOT stripped of that prefix (Vercel
+just chooses which function handles the request; the ASGI scope still sees
+the original path, e.g. "/api/chat"). Mounting the real app under "/api"
+lets Starlette strip that prefix internally, so `app/main.py`'s own routes
+stay exactly as they are (`/health`, `/chat`, `/agents`) — unprefixed and
+identical to how they're served locally via `uvicorn app.main:app`.
 
-The path append below is needed because Vercel invokes this file directly
+The sys.path append is needed because Vercel invokes this file directly
 (its own directory is sys.path[0]), while `app` is a sibling top-level
-package one level up — the same layout `uvicorn app.main:app` relies on when
-run from `backend/` locally.
+package one level up.
 """
 import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from app.main import app  # noqa: E402
+from fastapi import FastAPI  # noqa: E402
+
+from app.main import app as backend_app  # noqa: E402
+
+app = FastAPI()
+app.mount("/api", backend_app)
